@@ -1,9 +1,9 @@
 package com.example.wordcounter;
 
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
-import android.widget.Button;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -11,152 +11,164 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.wordcounter.analyzer.TestSentenceGenerator;
 import com.example.wordcounter.analyzer.TextMetrics;
-import com.example.wordcounter.analyzer.TextMetricsCalculator;
-import com.example.wordcounter.model.CalculationRecord;
+import com.example.wordcounter.databinding.ActivityMainBinding;
 import com.example.wordcounter.ui.HistoryAdapter;
-import com.google.android.material.textfield.TextInputEditText;
-import com.google.android.material.textfield.TextInputLayout;
+import com.example.wordcounter.ui.viewmodel.WordCounterViewModel;
+
+import java.util.List;
 
 /**
  * Main Activity providing text input, metrics visualization, sample generation,
  * validation, and calculation history.
+ *
+ * All mutable state lives in {@link WordCounterViewModel}, which survives
+ * configuration changes (rotation, theme switch). Heavy computations are
+ * offloaded to a background thread inside the ViewModel.
  */
 public class MainActivity extends AppCompatActivity {
 
-    private final TextMetricsCalculator calculator = new TextMetricsCalculator();
-    private final TestSentenceGenerator sentenceGenerator = new TestSentenceGenerator();
-    private final HistoryAdapter historyAdapter = new HistoryAdapter();
-
-    private TextInputLayout tilInputText;
-    private TextInputEditText etInputText;
-    private Button btnCalculate;
-    private Button btnGenerateSample;
-    private Button btnClear;
-
-    private TextView tvSentencesValue;
-    private TextView tvWordsValue;
-    private TextView tvCharactersValue;
-    private TextView tvNumbersValue;
-    private TextView tvSummaryFormula;
-
-    private RecyclerView rvHistory;
-    private TextView tvEmptyHistory;
-    private Button btnClearHistory;
+    private ActivityMainBinding binding;
+    private WordCounterViewModel viewModel;
+    private HistoryAdapter historyAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_main);
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.main, (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
 
-        initViews();
+        viewModel = new ViewModelProvider(this).get(WordCounterViewModel.class);
+
         setupRecyclerView();
         setupListeners();
-    }
-
-    private void initViews() {
-        tilInputText = findViewById(R.id.tilInputText);
-        etInputText = findViewById(R.id.etInputText);
-        btnCalculate = findViewById(R.id.btnCalculate);
-        btnGenerateSample = findViewById(R.id.btnGenerateSample);
-        btnClear = findViewById(R.id.btnClear);
-
-        tvSentencesValue = findViewById(R.id.tvSentencesValue);
-        tvWordsValue = findViewById(R.id.tvWordsValue);
-        tvCharactersValue = findViewById(R.id.tvCharactersValue);
-        tvNumbersValue = findViewById(R.id.tvNumbersValue);
-        tvSummaryFormula = findViewById(R.id.tvSummaryFormula);
-
-        rvHistory = findViewById(R.id.rvHistory);
-        tvEmptyHistory = findViewById(R.id.tvEmptyHistory);
-        btnClearHistory = findViewById(R.id.btnClearHistory);
+        observeViewModel();
     }
 
     private void setupRecyclerView() {
-        rvHistory.setLayoutManager(new LinearLayoutManager(this));
-        rvHistory.setAdapter(historyAdapter);
-        updateHistoryVisibility();
+        historyAdapter = new HistoryAdapter();
+        binding.rvHistory.setLayoutManager(new LinearLayoutManager(this));
+        binding.rvHistory.setAdapter(historyAdapter);
     }
 
     private void setupListeners() {
-        btnCalculate.setOnClickListener(v -> performCalculation());
+        // Clear error as soon as the user starts typing
+        binding.etInputText.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (binding.tilInputText.getError() != null) {
+                    binding.tilInputText.setError(null);
+                }
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
 
-        btnGenerateSample.setOnClickListener(v -> {
-            tilInputText.setError(null);
-            String sample = sentenceGenerator.getNextSentence();
-            etInputText.setText(sample);
-            etInputText.setSelection(sample.length());
+        binding.btnCalculate.setOnClickListener(v -> performCalculation());
+
+        binding.btnGenerateSample.setOnClickListener(v -> {
+            binding.tilInputText.setError(null);
+            String sample = viewModel.getNextSampleSentence();
+            binding.etInputText.setText(sample);
+            binding.etInputText.setSelection(sample.length());
             Toast.makeText(this, R.string.toast_sample_generated, Toast.LENGTH_SHORT).show();
         });
 
-        btnClear.setOnClickListener(v -> {
-            etInputText.setText("");
-            tilInputText.setError(null);
+        binding.btnClear.setOnClickListener(v -> {
+            binding.etInputText.setText("");
+            binding.tilInputText.setError(null);
             resetResults();
             Toast.makeText(this, R.string.toast_cleared, Toast.LENGTH_SHORT).show();
         });
 
-        btnClearHistory.setOnClickListener(v -> {
-            historyAdapter.clearRecords();
-            updateHistoryVisibility();
+        binding.btnClearHistory.setOnClickListener(v -> {
+            viewModel.clearHistory();
             Toast.makeText(this, R.string.toast_history_cleared, Toast.LENGTH_SHORT).show();
         });
     }
 
-    private void performCalculation() {
-        String rawText = etInputText.getText() != null ? etInputText.getText().toString() : "";
-        String trimmed = rawText.trim();
+    private void observeViewModel() {
+        viewModel.metrics.observe(this, this::displayMetrics);
 
-        if (trimmed.isEmpty()) {
-            tilInputText.setError(getString(R.string.error_empty_input));
-            Toast.makeText(this, R.string.error_empty_input, Toast.LENGTH_SHORT).show();
+        viewModel.history.observe(this, records -> {
+            historyAdapter.submitList(records);
+            updateHistoryVisibility(records);
+            if (records != null && !records.isEmpty()) {
+                binding.rvHistory.scrollToPosition(0);
+            }
+        });
+
+        viewModel.calculating.observe(this, isCalculating -> {
+            binding.btnCalculate.setEnabled(!isCalculating);
+        });
+    }
+
+    private void performCalculation() {
+        String rawText = binding.etInputText.getText() != null
+                ? binding.etInputText.getText().toString() : "";
+
+        if (rawText.trim().isEmpty()) {
+            binding.tilInputText.setError(getString(R.string.error_empty_input));
             return;
         }
 
-        tilInputText.setError(null);
+        binding.tilInputText.setError(null);
+        viewModel.requestCalculation(rawText);
+    }
 
-        TextMetrics metrics = calculator.calculate(rawText);
+    private void displayMetrics(TextMetrics metrics) {
+        if (metrics == null) return;
 
-        tvSentencesValue.setText(String.valueOf(metrics.getSentenceCount()));
-        tvWordsValue.setText(String.valueOf(metrics.getWordCount()));
-        tvCharactersValue.setText(String.valueOf(metrics.getCharacterCount()));
-        tvNumbersValue.setText(String.valueOf(metrics.getNumberCount()));
+        binding.tvSentencesValue.setText(String.valueOf(metrics.getSentenceCount()));
+        binding.tvWordsValue.setText(String.valueOf(metrics.getWordCount()));
+        binding.tvCharactersValue.setText(String.valueOf(metrics.getCharacterCount()));
+        binding.tvNumbersValue.setText(String.valueOf(metrics.getNumberCount()));
 
-        String summaryText = "„" + trimmed + "“ => " + metrics.toSummaryString();
-        tvSummaryFormula.setText(summaryText);
-
-        CalculationRecord record = new CalculationRecord(trimmed, metrics);
-        historyAdapter.addRecord(record);
-        updateHistoryVisibility();
-        rvHistory.scrollToPosition(0);
+        // Trim summary text safely (ViewModel history stores trimmed text already)
+        String summaryText = getString(R.string.formula_format,
+                truncateSafely(binding.etInputText.getText() != null
+                        ? binding.etInputText.getText().toString().trim() : "", 40),
+                metrics.toSummaryString());
+        binding.tvSummaryFormula.setText(summaryText);
     }
 
     private void resetResults() {
-        tvSentencesValue.setText("0");
-        tvWordsValue.setText("0");
-        tvCharactersValue.setText("0");
-        tvNumbersValue.setText("0");
-        tvSummaryFormula.setText("Formulė: 0, 0, 0, 0");
+        binding.tvSentencesValue.setText("0");
+        binding.tvWordsValue.setText("0");
+        binding.tvCharactersValue.setText("0");
+        binding.tvNumbersValue.setText("0");
+        binding.tvSummaryFormula.setText(R.string.default_summary_formula);
     }
 
-    private void updateHistoryVisibility() {
-        if (historyAdapter.isEmpty()) {
-            tvEmptyHistory.setVisibility(View.VISIBLE);
-            rvHistory.setVisibility(View.GONE);
-        } else {
-            tvEmptyHistory.setVisibility(View.GONE);
-            rvHistory.setVisibility(View.VISIBLE);
-        }
+    private void updateHistoryVisibility(List<?> records) {
+        boolean empty = records == null || records.isEmpty();
+        binding.tvEmptyHistory.setVisibility(empty ? View.VISIBLE : View.GONE);
+        binding.rvHistory.setVisibility(empty ? View.GONE : View.VISIBLE);
+    }
+
+    /**
+     * Truncates a string safely at Unicode code-point boundaries so emojis are never split.
+     */
+    private String truncateSafely(String text, int maxCodePoints) {
+        int codePointLen = text.codePointCount(0, text.length());
+        if (codePointLen <= maxCodePoints) return text;
+        int cutOffset = text.offsetByCodePoints(0, maxCodePoints - 3);
+        return text.substring(0, cutOffset) + "...";
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        binding = null;
     }
 }
