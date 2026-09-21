@@ -4,8 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@android:color/white">
+    android:layout_height="match_parent">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -32,7 +31,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="16dp"
-                android:text="Teksto analizatorius ir statistika"
+                android:text="@string/app_subtitle"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
@@ -130,7 +129,7 @@
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-bold"
                         android:text="@string/label_results_title"
-                        android:textColor="@color/black"
+                        android:textColor="@color/text_primary"
                         android:textSize="16sp" />
 
                     <!-- Metrics Grid 2x2 -->
@@ -267,7 +266,7 @@
                         android:background="@drawable/metric_summary_bg"
                         android:fontFamily="sans-serif-medium"
                         android:padding="8dp"
-                        android:text="Formulė: 0, 0, 0, 0"
+                        android:text="@string/default_summary_formula"
                         android:textAlignment="center"
                         android:textColor="@color/primary_dark"
                         android:textSize="14sp" />
@@ -304,7 +303,7 @@
                             android:layout_weight="1"
                             android:fontFamily="sans-serif-bold"
                             android:text="@string/label_history_title"
-                            android:textColor="@color/black"
+                            android:textColor="@color/text_primary"
                             android:textSize="16sp" />
 
                         <com.google.android.material.button.MaterialButton
@@ -333,7 +332,9 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
                         android:nestedScrollingEnabled="false"
-                        android:visibility="gone" />
+                        android:visibility="gone"
+                        tools:visibility="visible"
+                        tools:listitem="@layout/item_calculation_history" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
