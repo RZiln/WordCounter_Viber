@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">WordCounter Viber</string>
+    <string name="input_hint">Enter text for analysis...</string>
+    <string name="btn_calculate">Calculate</string>
+    <string name="btn_generate_sample">Generate Sample</string>
+    <string name="btn_clear">Clear</string>
+    <string name="label_results_title">Results</string>
+    <string name="label_sentences">Sentences</string>
+    <string name="label_words">Words</string>
+    <string name="label_characters">Characters</string>
+    <string name="label_numbers">Numbers</string>
+    <string name="label_history_title">Calculation History</string>
+    <string name="btn_clear_history">Clear History</string>
+    <string name="empty_history_message">History is empty. Perform a calculation.</string>
+    <string name="error_empty_input">Error: input field cannot be empty!</string>
+    <string name="toast_sample_generated">Sample sentence generated</string>
+    <string name="toast_cleared">Input cleared</string>
+    <string name="toast_history_cleared">History cleared</string>
+</resources>
