@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">WordCounter Viber</string>
+    <string name="app_subtitle">Teksto analizatorius ir statistika</string>
     <string name="input_hint">Įveskite tekstą analizei...</string>
     <string name="btn_calculate">Skaičiuoti</string>
     <string name="btn_generate_sample">Generuoti pavyzdį</string>
@@ -9,6 +10,8 @@
     <string name="label_words">Žodžiai</string>
     <string name="label_characters">Rašybos ženklai</string>
     <string name="label_numbers">Skaičiai</string>
+    <string name="default_summary_formula">Formulė: 0, 0, 0, 0</string>
+    <string name="formula_format">„%1$s“ => %2$s</string>
     <string name="label_history_title">Skaičiavimų istorija</string>
     <string name="btn_clear_history">Valyti istoriją</string>
     <string name="empty_history_message">Istorija tuščia. Atlikite skaičiavimą.</string>
@@ -16,4 +19,5 @@
     <string name="toast_sample_generated">Sugeneruotas testinis sakinys</string>
     <string name="toast_cleared">Laukas išvalytas</string>
     <string name="toast_history_cleared">Istorija išvalyta</string>
+    <string name="history_item_details_format">%1$s (%2$s)</string>
 </resources>
