@@ -2,6 +2,7 @@ package com.example.wordcounter;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.example.wordcounter.analyzer.TextMetrics;
 import com.example.wordcounter.analyzer.TextMetricsCalculator;
@@ -19,7 +20,7 @@ public class TextMetricsCalculatorTest {
     }
 
     // -----------------------------------------------------------------------
-    // Specification examples
+    // Specification examples (original)
     // -----------------------------------------------------------------------
 
     @Test
@@ -51,7 +52,7 @@ public class TextMetricsCalculatorTest {
     }
 
     // -----------------------------------------------------------------------
-    // Edge cases – null / empty / whitespace
+    // Edge cases – null / empty / whitespace (original)
     // -----------------------------------------------------------------------
 
     @Test
@@ -80,7 +81,7 @@ public class TextMetricsCalculatorTest {
     }
 
     // -----------------------------------------------------------------------
-    // Punctuation and multiple sentence delimiters
+    // Punctuation and multiple sentence delimiters (original)
     // -----------------------------------------------------------------------
 
     @Test
@@ -94,7 +95,7 @@ public class TextMetricsCalculatorTest {
     }
 
     // -----------------------------------------------------------------------
-    // Numbers – decimals, negatives, thousands separators
+    // Numbers – decimals, negatives, thousands separators (original)
     // -----------------------------------------------------------------------
 
     @Test
@@ -138,7 +139,7 @@ public class TextMetricsCalculatorTest {
     }
 
     // -----------------------------------------------------------------------
-    // Lithuanian characters
+    // Lithuanian characters (original)
     // -----------------------------------------------------------------------
 
     @Test
@@ -152,7 +153,7 @@ public class TextMetricsCalculatorTest {
     }
 
     // -----------------------------------------------------------------------
-    // Unicode non-breaking spaces
+    // Unicode non-breaking spaces (original)
     // -----------------------------------------------------------------------
 
     @Test
@@ -167,7 +168,7 @@ public class TextMetricsCalculatorTest {
     }
 
     // -----------------------------------------------------------------------
-    // Emoji / Unicode surrogate pairs – character count
+    // Emoji / Unicode surrogate pairs – character count (original)
     // -----------------------------------------------------------------------
 
     @Test
@@ -182,7 +183,7 @@ public class TextMetricsCalculatorTest {
     }
 
     // -----------------------------------------------------------------------
-    // Mixed content
+    // Mixed content (original)
     // -----------------------------------------------------------------------
 
     @Test
@@ -196,5 +197,197 @@ public class TextMetricsCalculatorTest {
         assertEquals(4, metrics.getWordCount());
         // numbers: 10, 20, 30, 60
         assertEquals(4, metrics.getNumberCount());
+    }
+
+    // -----------------------------------------------------------------------
+    // NEW: Boundary / single-element inputs
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testSingleCharacterLetter() {
+        TextMetrics metrics = calculator.calculate("A");
+        assertEquals(1, metrics.getSentenceCount());
+        assertEquals(1, metrics.getWordCount());
+        assertEquals(1, metrics.getCharacterCount());
+        assertEquals(0, metrics.getNumberCount());
+    }
+
+    @Test
+    public void testSingleCharacterDigit() {
+        TextMetrics metrics = calculator.calculate("7");
+        assertEquals(1, metrics.getSentenceCount());
+        assertEquals(0, metrics.getWordCount());
+        assertEquals(1, metrics.getCharacterCount());
+        assertEquals(1, metrics.getNumberCount());
+    }
+
+    @Test
+    public void testSingleCharacterPunctuation() {
+        // A lone "." has no alphanumeric content => 0 sentences
+        TextMetrics metrics = calculator.calculate(".");
+        assertEquals(0, metrics.getSentenceCount());
+        assertEquals(0, metrics.getWordCount());
+        assertEquals(1, metrics.getCharacterCount());
+        assertEquals(0, metrics.getNumberCount());
+    }
+
+    @Test
+    public void testSingleWordNoTrailingPunctuation() {
+        // Text with no sentence-ending punctuation still counts as 1 sentence
+        TextMetrics metrics = calculator.calculate("Hello");
+        assertEquals(1, metrics.getSentenceCount());
+        assertEquals(1, metrics.getWordCount());
+        assertEquals(5, metrics.getCharacterCount());
+        assertEquals(0, metrics.getNumberCount());
+    }
+
+    @Test
+    public void testOnlyPunctuationString() {
+        // A string made entirely of punctuation
+        TextMetrics metrics = calculator.calculate("!!! ??? ...");
+        assertEquals(0, metrics.getSentenceCount());
+        assertEquals(0, metrics.getWordCount());
+        assertEquals(0, metrics.getNumberCount());
+        // Character count equals actual character length (11)
+        assertEquals(11, metrics.getCharacterCount());
+    }
+
+    @Test
+    public void testLeadingAndTrailingWhitespace() {
+        // Leading/trailing spaces should NOT affect sentence/word counts
+        TextMetrics metrics = calculator.calculate("   Hello world.   ");
+        assertEquals(1, metrics.getSentenceCount());
+        assertEquals(2, metrics.getWordCount());
+        assertEquals(0, metrics.getNumberCount());
+        // Character count includes the surrounding spaces (18 chars total)
+        assertEquals(18, metrics.getCharacterCount());
+    }
+
+    @Test
+    public void testMultipleNewlineSeparators() {
+        // Newlines act as whitespace splitters
+        String input = "First sentence.\nSecond sentence.\nThird sentence.";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(3, metrics.getSentenceCount());
+        assertEquals(6, metrics.getWordCount());
+        assertEquals(0, metrics.getNumberCount());
+    }
+
+    // -----------------------------------------------------------------------
+    // NEW: Sentence-counting rules – abbreviations must NOT split sentences
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testAbbreviationDrDoesNotSplitSentence() {
+        // "dr." should not cause a sentence split
+        String input = "Dr. Jonas Jonaitis yra gydytojas.";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(1, metrics.getSentenceCount());
+        assertEquals(4, metrics.getWordCount());
+    }
+
+    @Test
+    public void testAbbreviationPvzDoesNotSplitSentence() {
+        // "pvz." (e.g.) is a common Lithuanian abbreviation
+        String input = "Spalvos, pvz. raudona ir mėlyna, yra gražios.";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(1, metrics.getSentenceCount());
+    }
+
+    @Test
+    public void testDecimalNumberDoesNotSplitSentence() {
+        // "3.14" should not be treated as a sentence boundary
+        String input = "Skaičius 3.14 yra pi.";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(1, metrics.getSentenceCount());
+        // words: Skaičius, yra, pi
+        assertEquals(3, metrics.getWordCount());
+        // numbers: 3.14
+        assertEquals(1, metrics.getNumberCount());
+    }
+
+    @Test
+    public void testQuestionAndExclamationInOneSentence() {
+        // "?!" together should count as a single sentence boundary
+        String input = "Ar tu čia?! Taip!";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(2, metrics.getSentenceCount());
+    }
+
+    @Test
+    public void testTextEndingWithoutPunctuation() {
+        // Text that ends mid-sentence still counts as one sentence
+        String input = "Sakinys be pabaigos";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(1, metrics.getSentenceCount());
+        assertEquals(3, metrics.getWordCount());
+    }
+
+    // -----------------------------------------------------------------------
+    // NEW: Number variety
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testNegativeDecimalNumber() {
+        // -3.14 is one number
+        String input = "Temperatūra yra -3.14 laipsnių.";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(1, metrics.getSentenceCount());
+        assertEquals(3, metrics.getWordCount()); // Temperatūra, yra, laipsnių
+        assertEquals(1, metrics.getNumberCount()); // -3.14
+    }
+
+    @Test
+    public void testDotThousandsSeparatorNumber() {
+        // European format: 1.000.000 is one number token
+        String input = "Suma yra 1.000.000 eurų.";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(1, metrics.getSentenceCount());
+        assertEquals(3, metrics.getWordCount()); // Suma, yra, eurų
+        assertEquals(1, metrics.getNumberCount()); // 1.000.000
+    }
+
+    @Test
+    public void testNumberAtStartOfText() {
+        String input = "42 programuotojai dirba čia.";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(1, metrics.getSentenceCount());
+        assertEquals(3, metrics.getWordCount()); // programuotojai, dirba, čia
+        assertEquals(1, metrics.getNumberCount()); // 42
+    }
+
+    @Test
+    public void testNumberAtEndOfText() {
+        String input = "Atsakymas yra 42.";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(1, metrics.getSentenceCount());
+        assertEquals(2, metrics.getWordCount()); // Atsakymas, yra
+        assertEquals(1, metrics.getNumberCount()); // 42
+    }
+
+    @Test
+    public void testMultipleNegativeNumbers() {
+        String input = "Nuo -10 iki -5 laipsnių.";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(1, metrics.getSentenceCount());
+        assertEquals(2, metrics.getWordCount()); // iki, laipsnių
+        assertEquals(2, metrics.getNumberCount()); // -10, -5
+    }
+
+    @Test
+    public void testZeroIsANumber() {
+        String input = "Rezultatas yra 0.";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(1, metrics.getSentenceCount());
+        assertEquals(2, metrics.getWordCount()); // Rezultatas, yra
+        assertEquals(1, metrics.getNumberCount()); // 0
+    }
+
+    @Test
+    public void testTextWithNoNumbers() {
+        String input = "Visai jokių skaičių šiame sakinyje.";
+        TextMetrics metrics = calculator.calculate(input);
+        assertEquals(0, metrics.getNumberCount());
+        assertTrue(metrics.getWordCount() > 0);
     }
 }
